@@ -1,0 +1,242 @@
+# EMU error log
+
+# 18 May 2026
+# Error when building database with diptera COI sequences
+salloc --mem=150G -c 1 -N 1 -n 8 -t 05:00:00
+source ~/software/init-conda-sl
+conda activate /work/soghigian_lab/apps/conda/envs/emu-3.6.2
+PATH=/work/soghigian_lab/apps/seqtk/:$PATH
+
+database=/work/soghigian_lab/huiqing.yeo/filaroidDiv/emu/ref_database
+refName=nem_cerv_hs_dip
+
+/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu build-database ${refName} --sequences ${refName}_format_2.fasta \
+> --seq2tax ${refName}_seq2tax_2.map \
+> --ncbi-taxonomy ${database}/taxdump
+Emu custom database generating at path: /work/soghigian_lab/huiqing.yeo/filaroidDiv/emu/ref_database/nem_cerv_hs_dip ...
+Traceback (most recent call last):
+  File "/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu", line 1027, in <module>
+    seq2tax = create_species_seq2tax_dict(args.seq2tax, dict_nodes)
+  File "/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu", line 648, in create_species_seq2tax_dict
+    species_tid = get_species_tid(tid, nodes_dict)
+  File "/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu", line 625, in get_species_tid
+    raise ValueError("Taxid:{} does not have an acceptable taxonomy label in lineage. Acceptable taxonomy labels: {}".format(start_id, TAXONOMY_RANKS))
+ValueError: Taxid:518105 does not have an acceptable taxonomy label in lineage. Acceptable taxonomy labels: ['species', 'genus', 'family', 'order', 'class', 'phylum', 'clade', 'superkingdom']
+
+grep "518105" nem_cerv_hs_dip_seq2tax_2.map
+KR518105_1_Dolichopodidae_sp__BOLD_2016_voucher_BIOUG12341_D10_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mitochondrial	1887023
+OQ532043_1_Megaselia_sp__65_LL_2023a_voucher_ZRCBDP0375083_cytochrome_c_oxidase_subunit_I_COX1_gene_partial_cds_mitochondrial	51810
+OQ532120_1_Megaselia_sp__5_LL_2023a_voucher_ZRCBDP0375164_cytochrome_c_oxidase_subunit_I_COX1_gene_partial_cds_mitochondrial	51810
+OQ532160_1_Megaselia_sp__69_LL_2023a_voucher_ZRCBDP0375206_cytochrome_c_oxidase_subunit_I_COX1_gene_partial_cds_mitochondrial	51810
+
+cp nem_cerv_hs_dip_seq2tax_2.map nem_cerv_hs_dip_seq2tax_2.map.copy
+
+# replace taxid with correct taxid for Megaselia
+sed -i 's/\t518105/\t3030755/g' nem_cerv_hs_dip_seq2tax_2.map
+
+# check that replacement did not accidentally replace accession KR518105
+grep "OQ532160_1_Megaselia_sp__69_LL_2023a_voucher_ZRCBDP0375206_cytochrome_c_oxidase_subunit_I_COX1_gene_partial_cds_mitochondrial" nem_cerv_hs_dip_seq2tax_2.map
+OQ532160_1_Megaselia_sp__69_LL_2023a_voucher_ZRCBDP0375206_cytochrome_c_oxidase_subunit_I_COX1_gene_partial_cds_mitochondrial	3030755
+
+grep "KR518105" nem_cerv_hs_dip_seq2tax_2.map
+KR518105_1_Dolichopodidae_sp__BOLD_2016_voucher_BIOUG12341_D10_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mitochondrial	1887023
+
+# try building database again
+/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu build-database ${refName} --sequences ${refName}_format_2.fasta \
+--seq2tax ${refName}_seq2tax_2.map \
+--ncbi-taxonomy ${database}/taxdump
+
+/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu build-database ${refName} --sequences ${refName}_format_2.fasta \
+> --seq2tax ${refName}_seq2tax_2.map \
+> --ncbi-taxonomy ${database}/taxdump
+Emu custom database generating at path: /work/soghigian_lab/huiqing.yeo/filaroidDiv/emu/ref_database/nem_cerv_hs_dip ...
+Traceback (most recent call last):
+  File "/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu", line 1027, in <module>
+    seq2tax = create_species_seq2tax_dict(args.seq2tax, dict_nodes)
+  File "/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu", line 642, in create_species_seq2tax_dict
+    (seqid, tid) = line.rstrip().split("\t")
+ValueError: not enough values to unpack (expected 2, got 1)
+
+# Check for lines that don't have exactly 1 tab (i.e., not exactly 2 columns)
+awk -F'\t' 'NF != 2 {print NR": "$0}' ${refName}_seq2tax_2.map
+
+# Check for empty lines
+grep -n "^$" ${refName}_seq2tax_2.map
+
+# Check for lines with >1 tab
+grep -Pn "\t.*\t" ${refName}_seq2tax_2.map
+
+# Check for lines without corresponding taxid
+python3 -c "
+> path = '${refName}_seq2tax_2.map'
+> bad = []
+> with open(path, encoding='utf8') as f:
+>     for i, line in enumerate(f, 1):
+>         parts = line.rstrip().split('\t')
+>         if len(parts) != 2:
+>             bad.append((i, repr(line[:100])))
+> print(f'Total bad lines: {len(bad)}')
+> for lineno, content in bad[:20]:
+>     print(f'Line {lineno}: {content}')
+> "
+Total bad lines: 34543
+Line 1270532: 'OR924509_1_Megaselia_sp__voucher_SMNS_1196082_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270533: 'OR924510_1_Megaselia_sp__voucher_SMNS_1206581_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270534: 'OR924511_1_Megaselia_sp__voucher_SMNS_1196085_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270535: 'OR924512_1_Megaselia_sp__voucher_SMNS_1196088_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270536: 'OR924513_1_Megaselia_sp__voucher_SMNS_1196089_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270537: 'OR924514_1_Megaselia_sp__voucher_SMNS_1196091_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270538: 'OR924515_1_Megaselia_sp__voucher_SMNS_1206574_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270539: 'OR924516_1_Megaselia_sp__voucher_SMNS_1196093_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270540: 'OR924517_1_Megaselia_sp__voucher_SMNS_1196094_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270541: 'OR924518_1_Megaselia_sp__voucher_SMNS_1196096_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270542: 'OR924519_1_Megaselia_sp__voucher_SMNS_1196103_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270543: 'OR924520_1_Megaselia_sp__voucher_SMNS_1206567_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270544: 'OR924521_1_Megaselia_sp__voucher_SMNS_1196105_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270545: 'OR924522_1_Megaselia_sp__voucher_SMNS_1196107_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270546: 'OR924523_1_Megaselia_sp__voucher_SMNS_1196111_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270547: 'OR924524_1_Megaselia_sp__voucher_SMNS_1196116_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270548: 'OR924525_1_Megaselia_sp__voucher_SMNS_1204283_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270549: 'OR924526_1_Megaselia_sp__voucher_SMNS_1204285_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270550: 'OR924527_1_Megaselia_sp__voucher_SMNS_1204287_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+Line 1270551: 'OR924528_1_Megaselia_sp__voucher_SMNS_1204288_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mito'
+
+# Do the bad OR924xxx sequences exist in the original map at all?
+grep "OR924509" ${refName}_seq2tax.map
+OR924509_1_Megaselia_sp__voucher_SMNS_1196082_cytochrome_oxidase_subunit_1_COI_gene_partial_cds_mitochondrial	
+
+# Found out that number of accessions and sequences of Nematoda do not match
+# Use epost to retrieve full list of accession
+# Encountered curl errors possibly as a result of connection, but still gives me the results anyway
+# Generated nem_cerv_hs_dip.seq2tax_2.map files again, checking that the number of taxids, seq2tax and fasta sequences all match
+
+# Build database
+/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu build-database ${refName} --sequences ${refName}_format_2.fasta \
+--seq2tax ${refName}_seq2tax_2.map \
+--ncbi-taxonomy ${database}/taxdump
+
+Emu custom database generating at path: /work/soghigian_lab/huiqing.yeo/filaroidDiv/emu/ref_database/nem_cerv_hs_dip ...
+Traceback (most recent call last):
+  File "/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu", line 1027, in <module>
+    seq2tax = create_species_seq2tax_dict(args.seq2tax, dict_nodes)
+  File "/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu", line 648, in create_species_seq2tax_dict
+    species_tid = get_species_tid(tid, nodes_dict)
+  File "/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu", line 621, in get_species_tid
+    raise ValueError("Taxid:{} not found in nodes file".format(tid))
+ValueError: Taxid:3304792 not found in nodes file
+
+## In this case, there are two options:
+# Option 1: update taxdump files and patch missing rows in the names.dmp and nodes.dmp files
+# Option 2: remove rows from fasta and seq2tax.map files
+
+# OPTION 1
+# Download most recent taxdump file (18 May 2026)
+mv taxdump taxdump_v1
+cd taxdump
+rm *
+wget https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz
+tar -xzf taxdump.tar.gz
+
+# 3304792 is in recent nodes.dmp but 1720774 is not. 1720774 was in the previous version of the nodes.dmp file though
+grep "3304792" nodes.dmp
+grep "1720774" nodes.dmp
+
+Emu custom database generating at path: /work/soghigian_lab/huiqing.yeo/filaroidDiv/emu/ref_database/nem_cerv_hs_dip ...
+Traceback (most recent call last):
+  File "/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu", line 1027, in <module>
+    seq2tax = create_species_seq2tax_dict(args.seq2tax, dict_nodes)
+  File "/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu", line 648, in create_species_seq2tax_dict
+    species_tid = get_species_tid(tid, nodes_dict)
+  File "/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu", line 621, in get_species_tid
+    raise ValueError("Taxid:{} not found in nodes file".format(tid))
+ValueError: Taxid:1720774 not found in nodes file
+
+# Extract all unique taxids from your map
+cut -f2 ${refName}_seq2tax.map | sort -u > all_taxids.txt
+
+# Extract all taxids present in nodes.dmp
+cut -f1 ${database}/taxdump/nodes.dmp | sort -u > nodes_taxids.txt
+
+# Find taxids in your map that are missing from nodes.dmp
+comm -23 all_taxids.txt nodes_taxids.txt > missing_from_nodes.txt
+cat missing_from_nodes.txt
+# 1720774
+# 2065236
+
+# Add missing taxid info to nodes.dmp
+cd ..
+grep "1720774" ./taxdump_v1/nodes.dmp > ./taxdump_v1/taxid_to_add.txt
+grep "2065236" ./taxdump_v1/nodes.dmp >> ./taxdump_v1/taxid_to_add.txt
+
+# 1720774	|	2618509	|	species	|	BS	|	1	|	1	|	1	|	1	|	5	|	1	|	1	|	0	|
+
+mv ./taxdump/nodes.dmp ./taxdump/nodes_original.dmp
+cat ./taxdump/nodes_original.dmp taxdump_v1/taxid_to_add.txt > ./taxdump/nodes.dmp
+grep -A 2 -B 2 "1720774" ./taxdump/nodes.dmp
+grep -A 2 -B 2 "2065236" ./taxdump/nodes.dmp
+
+# Build database
+/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu build-database ${refName} --sequences ${refName}_format.fasta \
+--seq2tax ${refName}_seq2tax.map \
+--ncbi-taxonomy ${database}/taxdump
+
+# error
+Emu custom database generating at path: /work/soghigian_lab/huiqing.yeo/filaroidDiv/emu/ref_database/nem_cerv_hs_dip ...
+Traceback (most recent call last):
+  File "/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu", line 1027, in <module>
+    seq2tax = create_species_seq2tax_dict(args.seq2tax, dict_nodes)
+  File "/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu", line 648, in create_species_seq2tax_dict
+    species_tid = get_species_tid(tid, nodes_dict)
+  File "/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu", line 625, in get_species_tid
+    raise ValueError("Taxid:{} does not have an acceptable taxonomy label in lineage. Acceptable taxonomy labels: {}".format(start_id, TAXONOMY_RANKS))
+ValueError: Taxid:518105 does not have an acceptable taxonomy label in lineage. Acceptable taxonomy labels: ['species', 'genus', 'family', 'order', 'class', 'phylum', 'clade', 'superkingdom']
+
+# Patch nodes.dmp
+# Find the line and check it
+# Matches to culex pipiens complex on ncbi taxonomy
+grep "^518105" nodes.dmp
+
+# Edit the rank field (3rd pipe-delimited field) to 'species'
+sed -i 's/^\(518105\t|\t[0-9]*\t|\t\)[^\t]*/\1species/' nodes.dmp
+
+# Build database
+/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu build-database ${refName} --sequences ${refName}_format.fasta \
+--seq2tax ${refName}_seq2tax.map \
+--ncbi-taxonomy ${database}/taxdump
+
+Emu custom database generating at path: /work/soghigian_lab/huiqing.yeo/filaroidDiv/emu/ref_database/nem_cerv_hs_dip ...
+Traceback (most recent call last):
+  File "/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu", line 1040, in <module>
+    build_ncbi_taxonomy(db_unique_ids, dict_nodes, dict_names, output_taxonomy_location)
+  File "/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu", line 731, in build_ncbi_taxonomy
+    lst = lineage_dict_from_tid(tid, nodes_dict, names_dict)
+  File "/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu", line 495, in lineage_dict_from_tid
+    while names_dict[taxid] != "root":
+KeyError: '2065236'
+
+# Add missing taxid to names.dmp
+grep "1720774" ./taxdump_v1/names.dmp > ./taxdump_v1/names_to_add.txt
+grep "2065236" ./taxdump_v1/names.dmp >> ./taxdump_v1/names_to_add.txt
+
+mv ./taxdump/names.dmp ./taxdump/names_original.dmp
+cat ./taxdump/names_original.dmp ./taxdump_v1/names_to_add.txt > ./taxdump/names.dmp
+
+grep -A 2 -B 2 "1720774" ./taxdump/names.dmp | cat -A
+grep -A 2 -B 2 "2065236" ./taxdump/names.dmp | cat -A
+
+# OPTION 2
+# remove lines from seq2tax and fasta files where taxid is not found in nodes.dmp
+# temporary measure
+# probably mismatch between ncbi taxid and taxonomy databases for scutellonema afribrachyurus
+grep -v "3686840" ${refName}_seq2tax.map > ${refName}_seq2tax_2.map
+grep "3686840" ${refName}_seq2tax.map | awk -F"\t" '{print $1}' > tmp.txt
+grep ">" ${refName}_format.fasta | sed "s/>//g" | grep -vxf tmp.txt > tmp_subset.txt
+seqtk subseq ${refName}_format.fasta tmp_subset.txt > ${refName}_format_2.fasta
+rm tmp*
+
+# Build database
+/work/soghigian_lab/apps/conda/envs/emu-3.6.2/emu build-database ${refName} --sequences ${refName}_format.fasta \
+--seq2tax ${refName}_seq2tax.map \
+--ncbi-taxonomy ${database}/taxdump
+Emu custom database generating at path: /work/soghigian_lab/huiqing.yeo/filaroidDiv/emu/ref_database/nem_cerv_hs_dip ...
+Database creation successful
