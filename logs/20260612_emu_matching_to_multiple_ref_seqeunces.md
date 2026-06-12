@@ -32,4 +32,3 @@ The debug output shows that the reads can be matched to either reference sequenc
 We wanted to be able to see percentage ID of the reads and be able to have more flexibility with the output, including getting haplpotype sequences that we could examine and carry out donstream analysis of.
 So even though emu is really fast computationally, we have decided to switch to a haplotype-based approach, where we generate and polish haplotypes, and blast the polished haplotypes against databases.
 This process is similar to how we generated Setaria and Onchocerca reference sequences, and references codes from Gandasegui (https://github.com/Gandasegui/Incognita_reanalysis/blob/main/01_scripts/04_generating_haplotype_counts.md).
-
