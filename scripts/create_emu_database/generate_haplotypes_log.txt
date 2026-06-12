@@ -1,0 +1,153 @@
+############################################################################
+### Generating ITS2 barcode from Onchocerca worm (nanopore sequences) ####
+############################################################################
+# Sample 42 is Onchocerca worm its2
+# following this pipeline 
+# https://github.com/Gandasegui/Incognita_reanalysis/blob/main/01_scripts/04_generating_haplotype_counts.md
+
+salloc --mem=150G -c 1 -N 1 -n 8 -t 05:00:00
+source ~/software/init-conda-sl
+conda activate /work/soghigian_lab/apps/conda/envs/seqkit/
+cp /work/soghigian_lab/huiqing.yeo/metabarcoding_old/filarioidDiv3/0_fastq_files/sample42_q18_trimmed.fastq.gz ./its2_onchocerca/
+seqkit fq2fa sample42_q18_trimmed.fastq.gz > sample42.fasta
+
+conda activate /work/soghigian_lab/apps/conda/envs/vsearch/
+
+vsearch --derep_fulllength sample42.fasta \
+  --output sample42.derep.fasta \
+  --sizeout \
+  --relabel uniq_
+  
+# removes low abundance sequences (<100)
+vsearch --fastx_filter sample42.derep.fasta \
+--minsize 100 \
+--fastaout sample42.derep.min100.fasta
+
+# no sequences were kept
+vsearch v2.30.1_linux_x86_64, 187.5GB RAM, 40 cores
+https://github.com/torognes/vsearch
+
+Reading input file 100%  
+0 sequences kept (of which 0 truncated), 330 sequences discarded.
+
+
+# check highest read count after dereplication
+head sample42.derep.fasta
+
+# maximum size=16
+>uniq_1;size=16
+
+vsearch --cluster_fast sample42.derep.fasta \
+  --id 0.985 \
+  --centroids sample42.haplotypes.reps.fasta \
+  --uc sample42.clusters.uc \
+  --threads 8
+
+vsearch v2.30.1_linux_x86_64, 187.5GB RAM, 40 cores
+https://github.com/torognes/vsearch
+
+Reading file sample42.derep.fasta 100%  
+317843 nt in 330 seqs, min 953, max 970, avg 963
+Masking 100% 
+Sorting by length 100%
+Counting k-mers 100% 
+Clustering 100%  
+Sorting clusters 100%
+Writing clusters 100% 
+Clusters: 47 Size min 1, max 197, avg 7.0
+Singletons: 37, 11.2% of seqs, 78.7% of clusters
+
+PATH=/work/soghigian_lab/apps/minimap2-2.23_x64-linux/:$PATH
+minimap2 -t 8 -x map-ont --secondary=no \
+  sample42.haplotypes.reps.fasta \
+  sample42_q18_trimmed.fastq.gz > all_to_reps.paf
+
+# read error correction tool
+# refer to fig3 for overview of Racon consensus process https://pmc.ncbi.nlm.nih.gov/articles/PMC5411768/
+# Racon uses Partial Order Alignment (POA) to identify the most likely true sequence, replacing erroneous bases and building consensus sequence
+PATH=/work/soghigian_lab/apps/racon/build/bin:$PATH
+racon -t 8 \
+  sample42_q18_trimmed.fastq.gz \
+  all_to_reps.paf \
+  sample42.haplotypes.reps.fasta \
+  > haplotypes.racon.fasta
+  
+conda activate /work/soghigian_lab/apps/conda/envs/medaka_2.2.2
+
+# medaka is a deep learning polisher
+# header of fastq file will indicate which basecalling model used
+# zless sample.fastq
+# basecall_model_version_id=dna_r10.4.1_e8.2_400bps_sup@v5.2.0 rc
+
+medaka_consensus -t 8 \
+  -i sample42_q18_trimmed.fastq.gz \
+  -d haplotypes.racon.fasta \
+  -o medaka_vsearch_out \
+  -m r1041_e82_400bps_sup_v5.2.0
+
+cp ./medaka_vsearch_out/consensus.fasta haplotypes.polished.fasta
+
+conda activate /work/soghigian_lab/apps/conda/envs/seqkit/
+
+FWD=GTAGGTGAACCTGCGGAAGGATCATT
+REV=TTAGTTTCTTTTCCTCCGCT
+
+#Check for the presence of the primers
+#forward primer
+seqkit locate -p GTAGGTGAACCTGCGGAAGGATCATT haplotypes.polished.fasta
+
+# nothing
+seqID	patternName	pattern	strand	start	end	matched
+
+#reverse primer
+seqkit locate -p TTAGTTTCTTTTCCTCCGCT haplotypes.polished.fasta
+
+#nothing
+seqID	patternName	pattern	strand	start	end	matched
+
+# count haplotypes per sample
+# in this case, I only have one sample
+
+minimap2 -t 8 -x map-ont --secondary=no \
+haplotypes.polished.fasta sample42_q18_trimmed.fastq.gz \
+> sample42.paf
+
+#bsub.py 9 hap_map -q long "bash map.sh"
+{
+  echo -e "Run\tHaplotype\tReads"
+  P="sample42.paf"
+  RUN=$(basename "$P" .paf)
+  awk 'BEGIN{FS="\t"; OFS="\t"}
+       {key=$6"\t"$1; if(!(key in seen)) { seen[key]=1; c[$6]++ }}
+       END{for(h in c) print "'"$RUN"'", h, c[h]}' "$P"
+} > run_haplotype_counts.tsv
+
+cat run_haplotype_counts.tsv
+
+# uniq_609 has the most number of reads (112)
+Run	Haplotype	Reads
+sample42	uniq_241;size=1	69
+sample42	uniq_56;size=1	112
+sample42	uniq_300;size=1	60
+sample42	uniq_191;size=1	15
+sample42	uniq_171;size=1	102
+sample42	uniq_101;size=1	1
+
+# grep sequence
+grep "uniq_56" haplotypes.polished.fasta -A 1 > onchocerca_its2.fasta
+
+>uniq_56;size=1
+ATCGAGCTTCAAAAACAACAACAACAACAATAATCATTACATATTTTTTTTTTTATATGTAATGATCATTATTATCAACCATATCACTTTACATCATCATTATTATTATTTTTGATATTAACATAAAATTTCTTTTTCAATTAAGCAACGAAAAAGAATATGTTAATAATAGATGTATGATAATAATAGTGATTATTTTGTGATTGGTTAATTAAAAATGAATAAACGGTGATATTCGTTGGTGTCTATACTTTATCCAAGTTATCGCCTAACCGTCGATAACAATGAAGATAAAGCGATAGCTTAATTAATTTTTATTTAAAATTAATTAAGTAGACTTAATAAGCATTTTAGCTAGTATGCTGCCAACAAAATAAATACACACAAAAACTATATGTATTTGATTCAATTTTTCATTATTAACAAATTTTTTTTTAACTCTTAGCGGTGGATCACTTGGCTCGTGGATCGATGAAGAACGCAGCTAGCTGCGATAAATAGTGCGAATTGCAGACGCATTGAGCACAAAGATTTCGAACGCACATTGCACCATCGGGTTGATTCCCGATGGTACGTCTGGTTGAGGGTCAATATCTATCTATTCTTAACATATTAATATATCATTCGATATATATTCAAGTAGAATGAAAAATTTTTACTTGTTTATTTGATATATTATTTTGAATGTTAAAATAATCGTTAGGTGATTGAAATGAAATAATTCGATCCCCTAATAAGTTTTATATTGATAGTAATAAGAAAATTATATTATTTTCTTATTATTATTTATCAACATATTGTGCAAATAATACATCTTTCATACATCTATAAATGTTTAGCAAGGAAAGATGTAAATTATTATCATTTTATCACCAAATGAATAAAATGATAAAACAATATGATTTGAATCATTTCTTTGACCTCAACTCAGTCGTGATTACCCGCTGAATTTAAGCATATAACTA
+
+# blast results
+Onchocerca fasciata 18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence	Onchocerca fasciata	
+1387	1387	98%	0.0	93.22%	1002	JQ316671.1
+AF228571.1	Onchocerca volvulus clone OvNod1-3 18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence	
+Onchocerca volvulus	1345	1345	100%	0.0	92.00%	1180	AF228571.1
+MW940972.1	Onchocerca fasciata voucher skin scraping small subunit ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene, and internal transcribed spacer 2, complete sequence; and large subunit ribosomal RNA 
+gene, partial sequence	Onchocerca fasciata	1321	1321	98%	0.0	91.98%	1002	MW940972.1
+AF228572.1	Onchocerca volvulus clone OvNod1-4 18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence	
+Onchocerca volvulus	1284	1284	98%	0.0	91.33%	1177	AF228572.1
+AF228569.1	Onchocerca volvulus clone OvNod1-1 18S ribosomal RNA gene, partial sequence; internal transcribed spacer 1, 5.8S ribosomal RNA gene and internal transcribed spacer 2, complete sequence; and 28S ribosomal RNA gene, partial sequence	
+Onchocerca volvulus	1279	1279	98%	0.0	91.22%	1177	AF228569.1
+
