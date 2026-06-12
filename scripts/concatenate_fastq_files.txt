@@ -1,0 +1,9 @@
+salloc --mem=150G -c 1 -N 1 -n 8 -t 05:00:00
+
+for i in {42..47};
+do
+echo barcode$i
+cat /work/soghigian_lab/data/nanopore/20260506_metabarcoding_2026-05-08_20-28-46/barcode$i.fastq.gz \
+/work/soghigian_lab/data/nanopore/20260508_metabarcoding_2_2026-05-08_20-29-51/barcode$i.fastq.gz > \
+barcode$i.fastq.gz
+done
