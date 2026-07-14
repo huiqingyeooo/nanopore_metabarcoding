@@ -1,10 +1,8 @@
 ################################
 ### Set paths and variables
 ################################
-
 PROJECT_NAME=filarioidDiv4
 FASTQ_NAME=barcode44
-
 WORKING_DIR=/work/soghigian_lab/huiqing.yeo/metabarcoding
 UMI_DEMULTIPLEX_FILE=umi_demultiplex_CLepFol #ensure that file in folder ends with suffix .csv
 #SAMPLE_LIST=list_coi.txt
@@ -96,6 +94,14 @@ done
 env PERL5LIB= PERL_LOCAL_LIB_ROOT= parallel --delay 1 \
 sbatch --output ${QC_DIR}/slurm_output/slurm-%j.out \
 03_nanoplot_QC.slurm :::: ${DEMULTIPLEX_DIR}/list_coi.txt ::: ${QUALITY} ::: ${DEMULTIPLEX_DIR} ::: ${TRIMMED_FASTQ_DIR} ::: ${QC_DIR}
+
+# check log files
+for i in $(ls ${QC_DIR}/slurm_output/slurm-*.out);
+do 
+col1=`echo ${i}`
+col2=`tail -n 1 ${i}`
+echo $col1 $col2 >> ${QC_DIR}/slurm_output/slurm_summary.txt
+done
 
 #########################################
 ### summarize nanoplot QC results
