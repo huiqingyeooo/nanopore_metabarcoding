@@ -133,8 +133,11 @@ awk '{ split($1, a, "_"); $1=a[1]; print }' OFS="\t" top_hits.csv | \
 sed '1d' > top_hits.csv.tmp
 
 # left join, first file is the full list, second file is results
-join -a 1 -t $'\t' -e 'NULL' -o auto <(sort ${SAMPLE_INFO}.tmp) <(sort top_hits.csv.tmp) > results.csv
-sed -i "1i\\$HEADER" results.csv
+join -a 1 -1 1 -2 1 -t $'\t' -e 'NULL' < \
+(grep -v '^$' ${SAMPLE_INFO}.tmp | sort -k1,1 ) \ # added a code to remove empty lines from the sample info file before sorting
+<(sort -k1,1 ${PARENT_DIR}/top_hits.csv.tmp) > ${PARENT_DIR}/results.csv
+
+sed -i "1i\\$HEADER" ${PARENT_DIR}/results.csv
 rm *tmp*
 
 echo "Job finised with exit code $? at: `date`"
