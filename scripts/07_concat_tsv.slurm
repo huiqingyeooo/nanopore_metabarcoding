@@ -95,8 +95,8 @@ echo -e "$sample\t$TOTAL_READS\t$TOP_1_HIT\t$TOP_2_HIT\t$TOP_3_HIT"  >> top_hits
 done
 
 # calculate ratio of top1/top2 hit
-awk -F"\t" '{print $0, $4/$6}' OFS="\t" top_hits.tmp | \
-awk -F"\t" '{if ($9 >= 5) $10 = "successful"; else $10 = "unsuccessful"; print}' OFS="\t" > top_hits.csv
+awk -F"\t" '{ratio = ($6 != 0) ? $4/$6 : "NA"; print $0, ratio}' OFS="\t" top_hits.tmp | \
+awk -F"\t" '{if ($9 == "NA") $10 = "undefined"; else if ($9 >= 5) $10 = "successful"; else $10 = "unsuccessful"; print}' OFS="\t" > top_hits.csv
 
 # add header into long form csvcat
 header="sample\ttotal_reads\ttop_1_ID\ttop_1_count\ttop_2_ID\ttop_2_count\ttop_3_ID\ttop_3_count\ttop1/top2_ratio\tstatus"
