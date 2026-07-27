@@ -2,15 +2,15 @@
 ####### Reserve computing resources #############
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=24
+#SBATCH --cpus-per-task=12
 #SBATCH --time=8:00:00
 #SBATCH --mem=80G
 
-if [[ -z "$1" || -z "$2" ]]; then
-    echo "Usage: sbatch 1_umi_demultiplex.slurm <fastq_prefix> <umi_file_name> <fastq_dir> <working_dir>"
-    echo "  e.g. sbatch 1_umi_demultiplex.slurm barcode01 umi_demultiplex_barcode01 /path/to/fastq/files/dir /path/to/working/dir"
-    exit 1
-fi
+#if [[ -z "$1" || -z "$2" ]]; then
+#    echo "Usage: sbatch 1_umi_demultiplex.slurm <fastq_prefix> <umi_file_name> <fastq_dir> <working_dir>"
+#    echo "  e.g. sbatch 1_umi_demultiplex.slurm barcode01 umi_demultiplex_barcode01 /path/to/fastq/files/dir /path/to/working/dir"
+#    exit 1
+#fi
 
 ####### Set environment variables ###############
 source ~/software/init-conda-sl
