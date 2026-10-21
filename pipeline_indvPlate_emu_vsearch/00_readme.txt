@@ -1,14 +1,14 @@
 ################################
 ### Set paths and variables
 ################################
-PROJECT_NAME=filarioidDiv4
-FASTQ_NAME=barcode44
+PROJECT_NAME=MB005
+FASTQ_NAME=barcode01
 WORKING_DIR=/work/soghigian_lab/huiqing.yeo/metabarcoding
-UMI_DEMULTIPLEX_FILE=umi_demultiplex_CLepFol #ensure that file in folder ends with suffix .csv
+UMI_DEMULTIPLEX_FILE=umi_demultiplex_CLepFol_MB005 #ensure that file in folder ends with suffix .csv
 #SAMPLE_LIST=list_coi.txt
 SAMPLE_INFO=${PROJECT_NAME}_sample_info.csv
 
-SEQUENCING_RUN=2026-05-08_metabarcoding
+SEQUENCING_RUN=20260804_MB005-MB016_2026-08-07_15-21-00
 SCRIPTS=/work/soghigian_lab/huiqing.yeo/metabarcoding/scripts
 
 QUALITY=18 #Phred score quality
@@ -17,7 +17,7 @@ COUNT_THRESHOLD= #specify read counts below threshold %
 DATABASE_DIR=/work/soghigian_lab/huiqing.yeo/metabarcoding/ref_database/coi
 TAXDUMP_DIR=/work/soghigian_lab/huiqing.yeo/metabarcoding/ref_database/
 #DB_NAME=nbp-simuliids
-#DB_NAME=nem_cerv_hs_dip 
+DB_NAME=nem_cerv_hs_dip 
 EMU_PERC_ID=97
 EMU_MIN_LEN=100
 
